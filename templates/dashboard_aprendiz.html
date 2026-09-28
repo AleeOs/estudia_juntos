@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="row g-4">
+    <!-- Catálogo de Tutorías Disponibles -->
+    <div class="col-lg-7">
+        <div class="card shadow-sm border-0 rounded-3">
+            <div class="card-body p-4">
+                <h4 class="fw-bold text-primary mb-3">Tutorías Disponibles 📚</h4>
+                {% if disponibles %}
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Materia</th>
+                                    <th>Tutor</th>
+                                    <th>Fecha y Hora</th>
+                                    <th>Acción</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in disponibles %}
+                                <tr>
+                                    <td><strong>{{ item.nombre_materia }}</strong></td>
+                                    <td>{{ item.tutor_nombre }} {{ item.tutor_apellido }}</td>
+                                    <td>
+                                        <small class="d-block text-muted">{{ item.fecha }}</small>
+                                        <span>{{ item.hora_inicio }} - {{ item.hora_fin }}</span>
+                                    </td>
+                                    <td>
+                                        <form action="{{ url_for('reservar', id_disponibilidad=item.id_disponibilidad) }}" method="POST">
+                                            <button type="submit" class="btn btn-success btn-sm fw-bold">Reservar</button>
+                                        </form>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <p class="text-muted mb-0">No hay tutorías disponibles en este momento.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Mis Reservas y Código de Confirmación -->
+    <div class="col-lg-5">
+        <div class="card shadow-sm border-0 rounded-3">
+            <div class="card-body p-4">
+                <h4 class="fw-bold text-primary mb-3">Mis Citas Agendadas 🗓️</h4>
+                {% if mis_reservas %}
+                    {% for r in mis_reservas %}
+                    <div class="border rounded-3 p-3 mb-3 bg-white shadow-sm">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <span class="badge {% if r.estado == 'Pendiente' %}bg-warning text-dark{% else %}bg-success{% endif %}">
+                                {{ r.estado }}
+                            </span>
+                            <small class="text-muted">{{ r.fecha }}</small>
+                        </div>
+                        <h6 class="fw-bold mb-1">{{ r.nombre_materia }}</h6>
+                        <p class="small text-muted mb-2">Tutor: {{ r.tutor_nombre }} {{ r.tutor_apellido }} ({{ r.hora_inicio }} - {{ r.hora_fin }})</p>
+                        
+                        {% if r.estado == 'Pendiente' %}
+                        <div class="alert alert-info py-2 px-3 mb-0 d-flex justify-content-between align-items-center">
+                            <small>Código para el tutor:</small>
+                            <span class="fs-4 fw-bold text-primary tracking-wider">{{ r.codigo_verificacion }}</span>
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <p class="text-muted mb-0">Aún no has reservado ninguna tutoría.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

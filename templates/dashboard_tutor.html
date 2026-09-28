@@ -1,0 +1,119 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="row g-4">
+    <!-- Formulario para Publicar Horario -->
+    <div class="col-lg-4">
+        <div class="card shadow-sm border-0 rounded-3 mb-4">
+            <div class="card-body p-4">
+                <h4 class="fw-bold text-primary mb-3">Publicar Franja ⏰</h4>
+                <form action="{{ url_for('publicar_disponibilidad') }}" method="POST">
+                    <div class="mb-3">
+                        <label class="form-label">Asignatura</label>
+                        <select name="id_materia" class="form-select" required>
+                            {% for m in materias %}
+                                <option value="{{ m.id_materia }}">{{ m.nombre_materia }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Fecha</label>
+                        <input type="date" name="fecha" class="form-control" required>
+                    </div>
+                    <div class="row">
+                        <div class="col-6 mb-3">
+                            <label class="form-label">Hora Inicio</label>
+                            <input type="time" name="hora_inicio" class="form-control" required>
+                        </div>
+                        <div class="col-6 mb-3">
+                            <label class="form-label">Hora Fin</label>
+                            <input type="time" name="hora_fin" class="form-control" required>
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-primary w-100">Publicar Horario</button>
+                </form>
+            </div>
+        </div>
+
+
+
+
+        <!-- Resumen de Horas -->
+       <!-- Resumen de Horas y Botón de PDF -->
+<div class="card bg-primary text-white shadow-sm border-0 rounded-3 p-3 mb-4">
+    <h6 class="mb-1">Total Horas Acumuladas</h6>
+    <h2 class="display-5 fw-bold mb-2">{{ horas_totales }} hrs</h2>
+    <p class="small opacity-75 mb-3">Validadas mediante código de verificación</p>
+    
+    <a href="{{ url_for('descargar_certificado_pdf') }}" class="btn btn-light text-primary fw-bold w-100 shadow-sm">
+        📄 Descargar Certificado PDF
+    </a>
+</div>
+    </div>
+
+
+
+
+    <!-- Gestión de Tutorías y Validación por Código -->
+    <div class="col-lg-8">
+        <!-- Pendientes por Confirmar Código -->
+        <div class="card shadow-sm border-0 rounded-3 mb-4">
+            <div class="card-body p-4">
+                <h4 class="fw-bold text-primary mb-3">Confirmar Asistencia 🔑</h4>
+                {% if pendientes %}
+                    {% for p in pendientes %}
+                    <div class="border rounded-3 p-3 mb-3 bg-light d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="fw-bold mb-1">{{ p.nombre_materia }}</h6>
+                            <small class="text-muted">Aprendiz: {{ p.aprendiz_nombre }} {{ p.aprendiz_apellido }} | {{ p.fecha }} ({{ p.hora_inicio }})</small>
+                        </div>
+                        <form action="{{ url_for('validar_codigo', id_tutoria=p.id_tutoria) }}" method="POST" class="d-flex gap-2">
+                            <input type="text" name="codigo" maxlength="4" placeholder="Código (4 dígitos)" class="form-control form-control-sm text-center fw-bold" style="width: 150px;" required>
+                            <button type="submit" class="btn btn-success btn-sm">Validar</button>
+                        </form>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <p class="text-muted mb-0">No tienes tutorías pendientes por validar código.</p>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Historial de Franjas Publicadas -->
+        <div class="card shadow-sm border-0 rounded-3">
+            <div class="card-body p-4">
+                <h4 class="fw-bold text-primary mb-3">Mis Franjas Publicadas 📋</h4>
+                {% if mis_franjas %}
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Materia</th>
+                                    <th>Fecha</th>
+                                    <th>Horario</th>
+                                    <th>Estado</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for f in mis_franjas %}
+                                <tr>
+                                    <td><strong>{{ f.nombre_materia }}</strong></td>
+                                    <td>{{ f.fecha }}</td>
+                                    <td>{{ f.hora_inicio }} - {{ f.hora_fin }}</td>
+                                    <td>
+                                        <span class="badge {% if f.estado == 'Disponible' %}bg-success{% elif f.estado == 'Reservado' %}bg-warning text-dark{% elif f.estado == 'Completada' %}bg-primary{% else %}bg-secondary{% endif %}">
+    {{ f.estado }}
+</span>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <p class="text-muted mb-0">Aún no has publicado franjas de disponibilidad.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
