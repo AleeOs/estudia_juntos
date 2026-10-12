@@ -52,19 +52,53 @@
                     {% for r in mis_reservas %}
                     <div class="border rounded-3 p-3 mb-3 bg-white shadow-sm">
                         <div class="d-flex justify-content-between align-items-center mb-2">
-                            <span class="badge {% if r.estado == 'Pendiente' %}bg-warning text-dark{% else %}bg-success{% endif %}">
+                            <span class="badge {% if r.estado == 'Pendiente' %}bg-warning text-dark{% elif r.estado == 'Completada' %}bg-success{% else %}bg-danger{% endif %}">
                                 {{ r.estado }}
                             </span>
                             <small class="text-muted">{{ r.fecha }}</small>
                         </div>
+                        
                         <h6 class="fw-bold mb-1">{{ r.nombre_materia }}</h6>
                         <p class="small text-muted mb-2">Tutor: {{ r.tutor_nombre }} {{ r.tutor_apellido }} ({{ r.hora_inicio }} - {{ r.hora_fin }})</p>
                         
                         {% if r.estado == 'Pendiente' %}
-                        <div class="alert alert-info py-2 px-3 mb-0 d-flex justify-content-between align-items-center">
-                            <small>Código para el tutor:</small>
-                            <span class="fs-4 fw-bold text-primary tracking-wider">{{ r.codigo_verificacion }}</span>
-                        </div>
+                            <div class="alert alert-info py-2 px-3 mb-2 d-flex justify-content-between align-items-center">
+                                <small>Código para el tutor:</small>
+                                <span class="fs-4 fw-bold text-primary tracking-wider">{{ r.codigo_verificacion }}</span>
+                            </div>
+                            
+                            <!-- Botón para abrir Modal de Cancelación -->
+                            <button type="button" class="btn btn-outline-danger btn-sm w-100" data-bs-toggle="modal" data-bs-target="#modalCancelarAprendiz{{ r.id_tutoria }}">
+                                Cancelar Cita
+                            </button>
+
+                            <!-- Modal de Cancelación -->
+                            <div class="modal fade" id="modalCancelarAprendiz{{ r.id_tutoria }}" tabindex="-1" aria-hidden="true">
+                                <div class="modal-dialog">
+                                    <div class="modal-content">
+                                        <form action="{{ url_for('cancelar_tutoria_aprendiz', id_tutoria=r.id_tutoria) }}" method="POST">
+                                            <div class="modal-header">
+                                                <h5 class="modal-title text-danger fw-bold">Cancelar Tutoría</h5>
+                                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                            </div>
+                                            <div class="modal-body">
+                                                <p class="small text-muted mb-2">Indica el motivo por el cual cancelas la cita. El tutor podrá ver este mensaje.</p>
+                                                <textarea name="motivo_cancelacion" class="form-control" rows="3" placeholder="Ej. Se me presentó un inconveniente personal..." required></textarea>
+                                            </div>
+                                            <div class="modal-footer">
+                                                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Volver</button>
+                                                <button type="submit" class="btn btn-danger btn-sm">Confirmar Cancelación</button>
+                                            </div>
+                                        </form>
+                                    </div>
+                                </div>
+                            </div>
+
+                        {% elif r.estado == 'Cancelada' %}
+                            <div class="alert alert-danger py-2 px-3 mb-0 small mt-2">
+                                <strong>Cancelada por {{ r.cancelado_por }}:</strong>
+                                <p class="mb-0 italic">"{{ r.motivo_cancelacion if r.motivo_cancelacion else 'Sin motivo especificado' }}"</p>
+                            </div>
                         {% endif %}
                     </div>
                     {% endfor %}

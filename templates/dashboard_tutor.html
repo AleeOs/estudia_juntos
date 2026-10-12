@@ -34,24 +34,17 @@
             </div>
         </div>
 
-
-
-
-        <!-- Resumen de Horas -->
-       <!-- Resumen de Horas y Botón de PDF -->
-<div class="card bg-primary text-white shadow-sm border-0 rounded-3 p-3 mb-4">
-    <h6 class="mb-1">Total Horas Acumuladas</h6>
-    <h2 class="display-5 fw-bold mb-2">{{ horas_totales }} hrs</h2>
-    <p class="small opacity-75 mb-3">Validadas mediante código de verificación</p>
-    
-    <a href="{{ url_for('descargar_certificado_pdf') }}" class="btn btn-light text-primary fw-bold w-100 shadow-sm">
-        📄 Descargar Certificado PDF
-    </a>
-</div>
+        <!-- Resumen de Horas y Botón de PDF -->
+        <div class="card bg-primary text-white shadow-sm border-0 rounded-3 p-3 mb-4">
+            <h6 class="mb-1">Total Horas Acumuladas</h6>
+            <h2 class="display-5 fw-bold mb-2">{{ horas_totales }} hrs</h2>
+            <p class="small opacity-75 mb-3">Validadas mediante código de verificación</p>
+            
+            <a href="{{ url_for('descargar_certificado_pdf') }}" class="btn btn-light text-primary fw-bold w-100 shadow-sm">
+                📄 Descargar Certificado PDF
+            </a>
+        </div>
     </div>
-
-
-
 
     <!-- Gestión de Tutorías y Validación por Código -->
     <div class="col-lg-8">
@@ -91,6 +84,7 @@
                                     <th>Fecha</th>
                                     <th>Horario</th>
                                     <th>Estado</th>
+                                    <th>Acciones / Detalle</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -100,9 +94,87 @@
                                     <td>{{ f.fecha }}</td>
                                     <td>{{ f.hora_inicio }} - {{ f.hora_fin }}</td>
                                     <td>
-                                        <span class="badge {% if f.estado == 'Disponible' %}bg-success{% elif f.estado == 'Reservado' %}bg-warning text-dark{% elif f.estado == 'Completada' %}bg-primary{% else %}bg-secondary{% endif %}">
-    {{ f.estado }}
-</span>
+                                        <span class="badge {% if f.estado == 'Disponible' %}bg-success{% elif f.estado == 'Reservado' %}bg-warning text-dark{% elif f.estado == 'Completada' %}bg-primary{% else %}bg-danger{% endif %}">
+                                            {{ f.estado }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        {% if f.estado == 'Disponible' %}
+                                            <!-- Botón para Cancelar Franja Horaria -->
+                                            <button type="button" class="btn btn-outline-danger btn-sm fw-bold mb-1" data-bs-toggle="modal" data-bs-target="#modalCancelarTutor{{ f.id_disponibilidad }}">
+                                                Cancelar Franja
+                                            </button>
+
+                                            <!-- Si un Aprendiz canceló recientemente esta franja -->
+                                            {% if f.cancelado_por == 'Aprendiz' and f.motivo_cancelacion %}
+                                                <div class="small text-muted mt-1 p-2 bg-light border rounded">
+                                                    <strong class="text-warning">⚠️ Última reserva cancelada por {{ f.aprendiz_nombre }} {{ f.aprendiz_apellido }}:</strong><br>
+                                                    <em>"{{ f.motivo_cancelacion }}"</em>
+                                                </div>
+                                            {% endif %}
+
+                                            <!-- Modal de Cancelación por Tutor -->
+                                            <div class="modal fade" id="modalCancelarTutor{{ f.id_disponibilidad }}" tabindex="-1" aria-hidden="true">
+                                                <div class="modal-dialog">
+                                                    <div class="modal-content">
+                                                        <form action="{{ url_for('cancelar_franja_tutor', id_disponibilidad=f.id_disponibilidad) }}" method="POST">
+                                                            <div class="modal-header">
+                                                                <h5 class="modal-title text-danger fw-bold">Cancelar Franja Horaria</h5>
+                                                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                                            </div>
+                                                            <div class="modal-body">
+                                                                <label class="form-label small text-muted">Indica el motivo de la cancelación:</label>
+                                                                <textarea name="motivo_cancelacion" class="form-control" rows="3" placeholder="Ej. Inconveniente de fuerza mayor o cruce de horario..." required></textarea>
+                                                            </div>
+                                                            <div class="modal-footer">
+                                                                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Volver</button>
+                                                                <button type="submit" class="btn btn-danger btn-sm">Confirmar Cancelación</button>
+                                                            </div>
+                                                        </form>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                        {% elif f.estado == 'Reservado' %}
+                                            <!-- Botón para Cancelar Tutoría Reservada -->
+                                            <button type="button" class="btn btn-outline-danger btn-sm fw-bold mb-1" data-bs-toggle="modal" data-bs-target="#modalCancelarTutor{{ f.id_disponibilidad }}">
+                                                Cancelar Reserva
+                                            </button>
+                                            <div class="small text-primary mt-1">
+                                                <strong>Reservado por:</strong> {{ f.aprendiz_nombre }} {{ f.aprendiz_apellido }}
+                                            </div>
+
+                                            <!-- Modal de Cancelación de Reserva -->
+                                            <div class="modal fade" id="modalCancelarTutor{{ f.id_disponibilidad }}" tabindex="-1" aria-hidden="true">
+                                                <div class="modal-dialog">
+                                                    <div class="modal-content">
+                                                        <form action="{{ url_for('cancelar_franja_tutor', id_disponibilidad=f.id_disponibilidad) }}" method="POST">
+                                                            <div class="modal-header">
+                                                                <h5 class="modal-title text-danger fw-bold">Cancelar Tutoría Reservada</h5>
+                                                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                                            </div>
+                                                            <div class="modal-body">
+                                                                <p class="small text-danger fw-bold">Esta franja ya fue reservada por {{ f.aprendiz_nombre }} {{ f.aprendiz_apellido }}. Al cancelar, se le notificará el motivo.</p>
+                                                                <label class="form-label small text-muted">Indica el motivo de la cancelación:</label>
+                                                                <textarea name="motivo_cancelacion" class="form-control" rows="3" placeholder="Ej. Inconveniente de fuerza mayor o cruce de horario..." required></textarea>
+                                                            </div>
+                                                            <div class="modal-footer">
+                                                                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Volver</button>
+                                                                <button type="submit" class="btn btn-danger btn-sm">Confirmar Cancelación</button>
+                                                            </div>
+                                                        </form>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                        {% elif f.estado == 'Cancelado' or f.motivo_cancelacion %}
+                                            <div class="small text-danger">
+                                                <strong>Cancelado por {{ f.cancelado_por if f.cancelado_por else 'Tutor' }}:</strong><br>
+                                                <em>"{{ f.motivo_cancelacion if f.motivo_cancelacion else 'Sin motivo' }}"</em>
+                                            </div>
+                                        {% else %}
+                                            <span class="text-muted small">Sin acciones</span>
+                                        {% endif %}
                                     </td>
                                 </tr>
                                 {% endfor %}

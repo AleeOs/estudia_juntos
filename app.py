@@ -109,6 +109,9 @@ def logout():
     flash("Sesión cerrada correctamente.", "info")
     return redirect(url_for('login'))
 
+
+
+
 # --- MÓDULO APRENDIZ ---
 @app.route('/dashboard/aprendiz')
 def dashboard_aprendiz():
@@ -130,9 +133,10 @@ def dashboard_aprendiz():
     """)
     disponibles = cur.fetchall()
 
-    # 2. Obtener mis reservas (tutorías agendadas)
+    # 2. Obtener mis reservas (tutorías agendadas) - INCLUYE MOTIVO Y CANCELADO_POR
     cur.execute("""
         SELECT t.id_tutoria, t.codigo_verificacion, t.estado, t.duracion_horas,
+               t.motivo_cancelacion, t.cancelado_por,
                d.fecha, d.hora_inicio, d.hora_fin, m.nombre_materia,
                u.nombre AS tutor_nombre, u.apellido AS tutor_apellido
         FROM tutorias t
@@ -148,8 +152,6 @@ def dashboard_aprendiz():
     conn.close()
 
     return render_template('dashboard_aprendiz.html', disponibles=disponibles, mis_reservas=mis_reservas)
-
-
 
 
 
@@ -246,6 +248,11 @@ def validar_codigo(id_tutoria):
 
     return redirect(url_for('dashboard_tutor'))
 
+
+
+
+
+
 # --- MÓDULO TUTOR ---
 @app.route('/dashboard/tutor')
 def dashboard_tutor():
@@ -259,13 +266,25 @@ def dashboard_tutor():
     cur.execute("SELECT * FROM materias ORDER BY nombre_materia ASC")
     materias = cur.fetchall()
 
-    # 2. Mis franjas publicadas
+    # 2. Mis franjas publicadas (unificado con la última tutoría registrada para evitar duplicados)
     cur.execute("""
-        SELECT d.id_disponibilidad, d.fecha, d.hora_inicio, d.hora_fin, d.estado, m.nombre_materia
+        SELECT d.id_disponibilidad, d.fecha, d.hora_inicio, d.hora_fin, d.estado, m.nombre_materia,
+               t.id_tutoria, t.motivo_cancelacion, t.cancelado_por, t.estado AS estado_tutoria,
+               u.nombre AS aprendiz_nombre, u.apellido AS aprendiz_apellido
         FROM disponibilidades d
         JOIN materias m ON d.id_materia = m.id_materia
+        LEFT JOIN (
+            SELECT t1.*
+            FROM tutorias t1
+            INNER JOIN (
+                SELECT id_disponibilidad, MAX(id_tutoria) AS max_id
+                FROM tutorias
+                GROUP BY id_disponibilidad
+            ) t2 ON t1.id_tutoria = t2.max_id
+        ) t ON d.id_disponibilidad = t.id_disponibilidad
+        LEFT JOIN usuarios u ON t.id_aprendiz = u.id_usuario
         WHERE d.id_tutor = %s
-        ORDER BY d.fecha DESC
+        ORDER BY d.fecha DESC, d.hora_inicio DESC
     """, (session['user_id'],))
     mis_franjas = cur.fetchall()
 
@@ -290,6 +309,10 @@ def dashboard_tutor():
     conn.close()
 
     return render_template('dashboard_tutor.html', materias=materias, mis_franjas=mis_franjas, pendientes=pendientes, horas_totales=horas_totales)
+
+
+
+
 
 @app.route('/publicar_disponibilidad', methods=['POST'])
 def publicar_disponibilidad():
@@ -450,6 +473,85 @@ def descargar_certificado_pdf():
         download_name=f"Certificado_Tutor_{tutor['nombre']}_{tutor['apellido']}.pdf",
         mimetype='application/pdf'
     )
+
+
+
+
+
+@app.route('/cancelar_tutoria_aprendiz/<int:id_tutoria>', methods=['POST'])
+def cancelar_tutoria_aprendiz(id_tutoria):
+    if 'user_id' not in session or session.get('user_rol') != 'Aprendiz':
+        return redirect(url_for('login'))
+
+    motivo = request.form.get('motivo_cancelacion', '').strip()
+
+    conn = get_db_connection()
+    cur = conn.cursor()
+
+    # 1. Obtener la tutoría para saber qué disponibilidad liberar
+    cur.execute("SELECT id_disponibilidad FROM tutorias WHERE id_tutoria = %s AND id_aprendiz = %s", 
+                (id_tutoria, session['user_id']))
+    tutoria = cur.fetchone()
+
+    if tutoria:
+        # 2. Marcar la tutoría como Cancelada guardar motivo y quién canceló
+        cur.execute("""
+            UPDATE tutorias 
+            SET estado = 'Cancelada', motivo_cancelacion = %s, cancelado_por = 'Aprendiz'
+            WHERE id_tutoria = %s
+        """, (motivo, id_tutoria))
+
+        # 3. Liberar la franja del tutor para que quede Disponible otra vez
+        cur.execute("""
+            UPDATE disponibilidades 
+            SET estado = 'Disponible' 
+            WHERE id_disponibilidad = %s
+        """, (tutoria['id_disponibilidad'],))
+
+        conn.commit()
+        flash("Tutoría cancelada correctamente.", "info")
+    else:
+        flash("No se encontró la tutoría especificada.", "danger")
+
+    cur.close()
+    conn.close()
+    return redirect(url_for('dashboard_aprendiz'))
+
+
+@app.route('/cancelar_franja_tutor/<int:id_disponibilidad>', methods=['POST'])
+def cancelar_franja_tutor(id_disponibilidad):
+    if 'user_id' not in session or session.get('user_rol') != 'Tutor':
+        return redirect(url_for('login'))
+
+    motivo = request.form.get('motivo_cancelacion', '').strip()
+
+    conn = get_db_connection()
+    cur = conn.cursor()
+
+    # 1. Cancelar la disponibilidad
+    cur.execute("""
+        UPDATE disponibilidades 
+        SET estado = 'Cancelado' 
+        WHERE id_disponibilidad = %s AND id_tutor = %s
+    """, (id_disponibilidad, session['user_id']))
+
+    # 2. Si tenía una tutoría agendada, cancelarla y guardar el motivo
+    cur.execute("""
+        UPDATE tutorias 
+        SET estado = 'Cancelada', motivo_cancelacion = %s, cancelado_por = 'Tutor'
+        WHERE id_disponibilidad = %s AND estado = 'Pendiente'
+    """, (motivo, id_disponibilidad))
+
+    conn.commit()
+    cur.close()
+    conn.close()
+
+    flash("La franja u tutoría ha sido cancelada.", "info")
+    return redirect(url_for('dashboard_tutor'))
+
+
+
+
 
 
 if __name__ == '__main__':
