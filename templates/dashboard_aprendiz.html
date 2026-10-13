@@ -6,6 +6,34 @@
         <div class="card shadow-sm border-0 rounded-3">
             <div class="card-body p-4">
                 <h4 class="fw-bold text-primary mb-3">Tutorías Disponibles 📚</h4>
+                
+                <!-- Panel de Filtro Avanzado (Materia y Fecha) -->
+                <form method="GET" action="{{ url_for('dashboard_aprendiz') }}" class="row g-2 mb-4 bg-light p-3 rounded-3 border">
+                    <div class="col-md-6">
+                        <label class="form-label small fw-bold text-muted mb-1">Filtrar por Asignatura</label>
+                        <select name="id_materia" class="form-select form-select-sm" onchange="this.form.submit()">
+                            <option value="todas">-- Todas las materias --</option>
+                            {% for mat in todas_materias %}
+                                <option value="{{ mat.id_materia }}" {% if materia_seleccionada == mat.id_materia|string %}selected{% endif %}>
+                                    {{ mat.nombre_materia }} ({{ mat.codigo_materia }})
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="col-md-4">
+                        <label class="form-label small fw-bold text-muted mb-1">Filtrar por Fecha</label>
+                        <input type="date" name="fecha" class="form-control form-control-sm" value="{{ fecha_seleccionada }}" onchange="this.form.submit()">
+                    </div>
+
+                    <div class="col-md-2 d-flex align-items-end">
+                        <a href="{{ url_for('dashboard_aprendiz') }}" class="btn btn-outline-secondary btn-sm w-100" title="Limpiar Filtros">
+                            Limpiar
+                        </a>
+                    </div>
+                </form>
+
+                <!-- Tabla de Resultados -->
                 {% if disponibles %}
                     <div class="table-responsive">
                         <table class="table table-hover align-middle">
@@ -37,7 +65,9 @@
                         </table>
                     </div>
                 {% else %}
-                    <p class="text-muted mb-0">No hay tutorías disponibles en este momento.</p>
+                    <div class="text-center py-4 text-muted">
+                        <p class="mb-0">No se encontraron tutorías disponibles para los criterios seleccionados.</p>
+                    </div>
                 {% endif %}
             </div>
         </div>

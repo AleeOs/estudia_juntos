@@ -9,10 +9,11 @@
 <body class="bg-light">
     <nav class="navbar navbar-expand-lg navbar-dark bg-primary shadow-sm">
         <div class="container">
-            <a class="navbar-brand fw-bold" href="#">EstudiaJuntos</a>
+            <a class="navbar-brand fw-bold" href="{% if session.get('user_rol') == 'Tutor' %}{{ url_for('dashboard_tutor') }}{% elif session.get('user_rol') == 'Aprendiz' %}{{ url_for('dashboard_aprendiz') }}{% else %}#{% endif %}">EstudiaJuntos</a>
             {% if session.get('user_id') %}
             <div class="d-flex align-items-center gap-3">
                 <span class="text-white">Hola, <strong>{{ session['user_nombre'] }}</strong> ({{ session['user_rol'] }})</span>
+                <a href="{{ url_for('perfil') }}" class="btn btn-light btn-sm fw-semibold text-primary">Mi Perfil ⚙️</a>
                 <a href="{{ url_for('logout') }}" class="btn btn-outline-light btn-sm">Cerrar Sesión</a>
             </div>
             {% endif %}

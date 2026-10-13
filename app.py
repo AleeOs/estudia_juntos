@@ -118,22 +118,42 @@ def dashboard_aprendiz():
     if 'user_id' not in session or session.get('user_rol') != 'Aprendiz':
         return redirect(url_for('login'))
 
+    # Capturar parámetros de filtrado desde la URL (petición GET)
+    materia_id = request.args.get('id_materia', '').strip()
+    fecha_filtro = request.args.get('fecha', '').strip()
+
     conn = get_db_connection()
     cur = conn.cursor()
 
-    # 1. Obtener disponibilidades de tutores
-    cur.execute("""
+    # 1. Obtener todas las materias registradas para cargar el menú desplegable del filtro
+    cur.execute("SELECT * FROM materias ORDER BY nombre_materia ASC")
+    todas_materias = cur.fetchall()
+
+    # 2. Construir la consulta de disponibilidades filtradas dinámicamente
+    query_disponibles = """
         SELECT d.id_disponibilidad, d.fecha, d.hora_inicio, d.hora_fin,
                m.nombre_materia, u.nombre AS tutor_nombre, u.apellido AS tutor_apellido
         FROM disponibilidades d
         JOIN materias m ON d.id_materia = m.id_materia
         JOIN usuarios u ON d.id_tutor = u.id_usuario
         WHERE d.estado = 'Disponible'
-        ORDER BY d.fecha ASC, d.hora_inicio ASC
-    """)
+    """
+    params = []
+
+    if materia_id and materia_id != 'todas':
+        query_disponibles += " AND m.id_materia = %s"
+        params.append(materia_id)
+
+    if fecha_filtro:
+        query_disponibles += " AND d.fecha = %s"
+        params.append(fecha_filtro)
+
+    query_disponibles += " ORDER BY d.fecha ASC, d.hora_inicio ASC"
+
+    cur.execute(query_disponibles, tuple(params))
     disponibles = cur.fetchall()
 
-    # 2. Obtener mis reservas (tutorías agendadas) - INCLUYE MOTIVO Y CANCELADO_POR
+    # 3. Obtener mis reservas (tutorías agendadas)
     cur.execute("""
         SELECT t.id_tutoria, t.codigo_verificacion, t.estado, t.duracion_horas,
                t.motivo_cancelacion, t.cancelado_por,
@@ -151,7 +171,23 @@ def dashboard_aprendiz():
     cur.close()
     conn.close()
 
-    return render_template('dashboard_aprendiz.html', disponibles=disponibles, mis_reservas=mis_reservas)
+    return render_template(
+        'dashboard_aprendiz.html',
+        disponibles=disponibles,
+        mis_reservas=mis_reservas,
+        todas_materias=todas_materias,
+        materia_seleccionada=materia_id,
+        fecha_seleccionada=fecha_filtro
+    )
+
+
+
+
+
+
+
+
+
 
 
 
@@ -551,6 +587,97 @@ def cancelar_franja_tutor(id_disponibilidad):
 
 
 
+
+
+
+from werkzeug.security import generate_password_hash, check_password_hash
+
+@app.route('/perfil')
+def perfil():
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+
+    conn = get_db_connection()
+    cur = conn.cursor()
+
+    # Consultar datos del usuario junto con su nombre de rol
+    cur.execute("""
+        SELECT u.id_usuario, u.nombre, u.apellido, u.correo, u.semestre, r.nombre_rol
+        FROM usuarios u
+        JOIN roles r ON u.id_rol = r.id_rol
+        WHERE u.id_usuario = %s
+    """, (session['user_id'],))
+    usuario = cur.fetchone()
+
+    cur.close()
+    conn.close()
+
+    if not usuario:
+        flash("Usuario no encontrado.", "danger")
+        return redirect(url_for('login'))
+
+    return render_template('perfil.html', usuario=usuario)
+
+
+@app.route('/perfil/guardar', methods=['POST'])
+def guardar_perfil():
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+
+    nombre = request.form.get('nombre', '').strip()
+    apellido = request.form.get('apellido', '').strip()
+    semestre = request.form.get('semestre', '').strip()
+
+    pass_actual = request.form.get('pass_actual', '').strip()
+    pass_nueva = request.form.get('pass_nueva', '').strip()
+    pass_confirmar = request.form.get('pass_confirmar', '').strip()
+
+    conn = get_db_connection()
+    cur = conn.cursor()
+
+    # 1. Si intentó cambiar contraseña, validar la clave actual y coincidencia de la nueva
+    if pass_actual or pass_nueva or pass_confirmar:
+        cur.execute("SELECT contrasena FROM usuarios WHERE id_usuario = %s", (session['user_id'],))
+        user_db = cur.fetchone()
+
+        if not user_db or not check_password_hash(user_db['contrasena'], pass_actual):
+            flash("La contraseña actual es incorrecta. No se realizaron cambios de clave.", "danger")
+            cur.close()
+            conn.close()
+            return redirect(url_for('perfil'))
+
+        if len(pass_nueva) < 6:
+            flash("La nueva contraseña debe tener al menos 6 caracteres.", "warning")
+            cur.close()
+            conn.close()
+            return redirect(url_for('perfil'))
+
+        if pass_nueva != pass_confirmar:
+            flash("Las nuevas contraseñas no coinciden.", "warning")
+            cur.close()
+            conn.close()
+            return redirect(url_for('perfil'))
+
+        # Encriptar y actualizar la contraseña
+        pass_hash = generate_password_hash(pass_nueva)
+        cur.execute("UPDATE usuarios SET contrasena = %s WHERE id_usuario = %s", (pass_hash, session['user_id']))
+
+    # 2. Actualizar información personal
+    cur.execute("""
+        UPDATE usuarios 
+        SET nombre = %s, apellido = %s, semestre = %s
+        WHERE id_usuario = %s
+    """, (nombre, apellido, semestre, session['user_id']))
+
+    conn.commit()
+    cur.close()
+    conn.close()
+
+    # 3. Actualizar el nombre en la sesión activa para la barra superior
+    session['user_nombre'] = nombre
+
+    flash("¡Perfil actualizado correctamente!", "success")
+    return redirect(url_for('perfil'))
 
 
 
