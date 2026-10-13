@@ -71,6 +71,10 @@ def register():
 
     return render_template('register.html')
 
+
+
+
+
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
@@ -90,11 +94,18 @@ def login():
         conn.close()
 
         if user and check_password_hash(user['password_hash'], password):
+            # Validar si el usuario está inactivo
+            if user.get('activo') is False:
+                flash("Tu cuenta se encuentra suspendida o inactiva. Contacta al administrador.", "danger")
+                return redirect(url_for('login'))
+
             session['user_id'] = user['id_usuario']
             session['user_nombre'] = user['nombre']
             session['user_rol'] = user['nombre_rol']
 
-            if user['nombre_rol'] == 'Aprendiz':
+            if user['nombre_rol'] == 'Administrador':
+                return redirect(url_for('dashboard_admin'))
+            elif user['nombre_rol'] == 'Aprendiz':
                 return redirect(url_for('dashboard_aprendiz'))
             else:
                 return redirect(url_for('dashboard_tutor'))
@@ -103,11 +114,32 @@ def login():
 
     return render_template('login.html')
 
+
 @app.route('/logout')
 def logout():
     session.clear()
     flash("Sesión cerrada correctamente.", "info")
     return redirect(url_for('login'))
+
+
+@app.route('/toggle_estado_usuario/<int:id_usuario>', methods=['POST'])
+def toggle_estado_usuario(id_usuario):
+    if 'user_id' not in session or session.get('user_rol') != 'Administrador':
+        return redirect(url_for('login'))
+
+    conn = get_db_connection()
+    cur = conn.cursor()
+
+    # Alternar estado activo (TRUE/FALSE)
+    cur.execute("UPDATE usuarios SET activo = NOT COALESCE(activo, TRUE) WHERE id_usuario = %s", (id_usuario,))
+    conn.commit()
+
+    cur.close()
+    conn.close()
+
+    flash("Estado de la cuenta actualizado correctamente.", "info")
+    return redirect(url_for('dashboard_admin'))
+
 
 
 
@@ -678,6 +710,129 @@ def guardar_perfil():
 
     flash("¡Perfil actualizado correctamente!", "success")
     return redirect(url_for('perfil'))
+
+
+
+@app.route('/dashboard/admin')
+def dashboard_admin():
+    if 'user_id' not in session or session.get('user_rol') != 'Administrador':
+        flash("Acceso no autorizado.", "danger")
+        return redirect(url_for('login'))
+
+    conn = get_db_connection()
+    cur = conn.cursor()
+
+    # 1. Métricas KPIs Globales
+    cur.execute("SELECT COUNT(*) AS total FROM usuarios")
+    total_usuarios = cur.fetchone()['total']
+
+    cur.execute("SELECT COUNT(*) AS total FROM tutorias WHERE estado = 'Completada'")
+    tutorias_completadas = cur.fetchone()['total']
+
+    cur.execute("SELECT COALESCE(SUM(duracion_horas), 0) AS total FROM tutorias WHERE estado = 'Completada'")
+    horas_totales = cur.fetchone()['total']
+
+    # 2. Obtener lista de todas las materias
+    cur.execute("SELECT * FROM materias ORDER BY nombre_materia ASC")
+    materias = cur.fetchall()
+
+    # 3. Obtener lista de todos los usuarios con sus roles y estado activo
+    cur.execute("""
+        SELECT u.id_usuario, u.nombre, u.apellido, u.correo, u.semestre, COALESCE(u.activo, TRUE) AS activo, r.nombre_rol
+        FROM usuarios u
+        JOIN roles r ON u.id_rol = r.id_rol
+        ORDER BY u.nombre ASC
+    """)
+    usuarios = cur.fetchall()
+
+    cur.close()
+    conn.close()
+
+    return render_template(
+        'dashboard_admin.html',
+        total_usuarios=total_usuarios,
+        tutorias_completadas=tutorias_completadas,
+        horas_totales=horas_totales,
+        materias=materias,
+        usuarios=usuarios
+    )
+
+
+@app.route('/crear_materia', methods=['POST'])
+def crear_materia():
+    if 'user_id' not in session or session.get('user_rol') != 'Administrador':
+        return redirect(url_for('login'))
+
+    nombre_materia = request.form.get('nombre_materia', '').strip()
+    codigo_materia = request.form.get('codigo_materia', '').strip().upper()
+
+    if nombre_materia and codigo_materia:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        try:
+            cur.execute("""
+                INSERT INTO materias (nombre_materia, codigo_materia)
+                VALUES (%s, %s)
+            """, (nombre_materia, codigo_materia))
+            conn.commit()
+            flash("Asignatura creada exitosamente.", "success")
+        except Exception as e:
+            conn.rollback()
+            flash("Error: El código de la materia ya existe o hubo un fallo en la base de datos.", "danger")
+        finally:
+            cur.close()
+            conn.close()
+
+    return redirect(url_for('dashboard_admin'))
+
+
+@app.route('/eliminar_materia/<int:id_materia>', methods=['POST'])
+def eliminar_materia(id_materia):
+    if 'user_id' not in session or session.get('user_rol') != 'Administrador':
+        return redirect(url_for('login'))
+
+    conn = get_db_connection()
+    cur = conn.cursor()
+    try:
+        cur.execute("DELETE FROM materias WHERE id_materia = %s", (id_materia,))
+        conn.commit()
+        flash("Asignatura eliminada correctamente.", "info")
+    except Exception as e:
+        conn.rollback()
+        flash("No se puede eliminar la asignatura porque ya tiene tutorías o disponibilidades vinculadas.", "warning")
+    finally:
+        cur.close()
+        conn.close()
+
+    return redirect(url_for('dashboard_admin'))
+
+
+@app.route('/cambiar_rol_usuario/<int:id_usuario>', methods=['POST'])
+def cambiar_rol_usuario(id_usuario):
+    if 'user_id' not in session or session.get('user_rol') != 'Administrador':
+        return redirect(url_for('login'))
+
+    nuevo_rol_nombre = request.form.get('nuevo_rol', '').strip()
+
+    conn = get_db_connection()
+    cur = conn.cursor()
+
+    # Obtener el id_rol correspondiente al nombre recibido
+    cur.execute("SELECT id_rol FROM roles WHERE nombre_rol = %s", (nuevo_rol_nombre,))
+    rol = cur.fetchone()
+
+    if rol:
+        cur.execute("UPDATE usuarios SET id_rol = %s WHERE id_usuario = %s", (rol['id_rol'], id_usuario))
+        conn.commit()
+        flash("Rol de usuario actualizado correctamente.", "success")
+    else:
+        flash("El rol especificado no es válido.", "danger")
+
+    cur.close()
+    conn.close()
+
+    return redirect(url_for('dashboard_admin'))
+
 
 
 

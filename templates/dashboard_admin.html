@@ -1,0 +1,204 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container py-2">
+    <!-- Encabezado del Dashboard Admin -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h3 class="fw-bold text-primary mb-1">Panel de Administración 🛠️</h3>
+            <p class="text-muted small mb-0">Gestión global de usuarios, asignaturas y métricas de EstudiaJuntos</p>
+        </div>
+    </div>
+
+    <!-- Tarjetas de Métricas Globales (KPIs) -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm rounded-3 bg-white border-start border-primary border-4 p-3">
+                <div class="d-flex align-items-center justify-content-between">
+                    <div>
+                        <span class="text-muted small fw-bold text-uppercase d-block mb-1">Usuarios Registrados</span>
+                        <h2 class="fw-bold text-dark mb-0">{{ total_usuarios }}</h2>
+                    </div>
+                    <div class="bg-primary bg-opacity-10 text-primary rounded-circle p-3 fs-3">
+                        👥
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm rounded-3 bg-white border-start border-success border-4 p-3">
+                <div class="d-flex align-items-center justify-content-between">
+                    <div>
+                        <span class="text-muted small fw-bold text-uppercase d-block mb-1">Tutorías Realizadas</span>
+                        <h2 class="fw-bold text-dark mb-0">{{ tutorias_completadas }}</h2>
+                    </div>
+                    <div class="bg-success bg-opacity-10 text-success rounded-circle p-3 fs-3">
+                        ✅
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm rounded-3 bg-white border-start border-info border-4 p-3">
+                <div class="d-flex align-items-center justify-content-between">
+                    <div>
+                        <span class="text-muted small fw-bold text-uppercase d-block mb-1">Horas Validadas</span>
+                        <h2 class="fw-bold text-dark mb-0">{{ "%.1f"|format(horas_totales) }} hrs</h2>
+                    </div>
+                    <div class="bg-info bg-opacity-10 text-info rounded-circle p-3 fs-3">
+                        ⏳
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Navegación por Pestañas -->
+    <ul class="nav nav-tabs mb-4 border-bottom-0" id="adminTabs" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link active fw-bold px-4" id="materias-tab" data-bs-toggle="tab" data-bs-target="#materias" type="button" role="tab">
+                📚 Asignaturas ({{ materias|length }})
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link fw-bold px-4" id="usuarios-tab" data-bs-toggle="tab" data-bs-target="#usuarios" type="button" role="tab">
+                👥 Directorio de Usuarios ({{ usuarios|length }})
+            </button>
+        </li>
+    </ul>
+
+    <div class="tab-content" id="adminTabsContent">
+        <!-- Pestaña 1: Asignaturas -->
+        <div class="tab-pane fade show active" id="materias" role="tabpanel">
+            <div class="row g-4">
+                <!-- Formulario para Agregar Materia -->
+                <div class="col-lg-4">
+                    <div class="card shadow-sm border-0 rounded-3">
+                        <div class="card-body p-4">
+                            <h5 class="fw-bold text-primary mb-3">Nueva Asignatura ➕</h5>
+                            <form action="{{ url_for('crear_materia') }}" method="POST">
+                                <div class="mb-3">
+                                    <label class="form-label small fw-bold text-muted">Nombre de la Materia</label>
+                                    <input type="text" name="nombre_materia" class="form-control" placeholder="Ej. Inteligencia Artificial" required>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label small fw-bold text-muted">Código Institucional</label>
+                                    <input type="text" name="codigo_materia" class="form-control" placeholder="Ej. IA-401" required>
+                                </div>
+                                <button type="submit" class="btn btn-primary btn-sm w-100 fw-bold">Guardar Asignatura</button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tabla de Materias Existentes -->
+                <div class="col-lg-8">
+                    <div class="card shadow-sm border-0 rounded-3">
+                        <div class="card-body p-4">
+                            <h5 class="fw-bold text-primary mb-3">Catálogo Actual</h5>
+                            {% if materias %}
+                                <div class="table-responsive">
+                                    <table class="table table-hover align-middle mb-0">
+                                        <thead class="table-light">
+                                            <tr>
+                                                <th>Código</th>
+                                                <th>Nombre de Asignatura</th>
+                                                <th class="text-end">Acción</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for m in materias %}
+                                            <tr>
+                                                <td><span class="badge bg-secondary">{{ m.codigo_materia }}</span></td>
+                                                <td><strong>{{ m.nombre_materia }}</strong></td>
+                                                <td class="text-end">
+                                                    <form action="{{ url_for('eliminar_materia', id_materia=m.id_materia) }}" method="POST" class="d-inline" onsubmit="return confirm('¿Seguro que deseas eliminar esta asignatura?');">
+                                                        <button type="submit" class="btn btn-outline-danger btn-sm">Eliminar</button>
+                                                    </form>
+                                                </td>
+                                            </tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            {% else %}
+                                <p class="text-muted mb-0">No hay materias registradas aún.</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Pestaña 2: Usuarios -->
+        <div class="tab-pane fade" id="usuarios" role="tabpanel">
+            <div class="card shadow-sm border-0 rounded-3">
+                <div class="card-body p-4">
+                    <h5 class="fw-bold text-primary mb-3">Estudiantes Registrados</h5>
+                    {% if usuarios %}
+                        <div class="table-responsive">
+                            <table class="table table-hover align-middle mb-0">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Estudiante</th>
+                                        <th>Correo</th>
+                                        <th>Semestre</th>
+                                        <th>Rol Actual</th>
+                                        <th>Estado</th>
+                                        <th class="text-end">Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for u in usuarios %}
+                                    <tr>
+                                        <td><strong>{{ u.nombre }} {{ u.apellido }}</strong></td>
+                                        <td><small class="text-muted">{{ u.correo }}</small></td>
+                                        <td>{{ u.semestre }}° Semestre</td>
+                                        <td>
+                                            <span class="badge {% if u.nombre_rol == 'Administrador' %}bg-dark{% elif u.nombre_rol == 'Tutor' %}bg-success{% else %}bg-info text-dark{% endif %}">
+                                                {{ u.nombre_rol }}
+                                            </span>
+                                        </td>
+                                        <td>
+                                            {% if u.activo %}
+                                                <span class="badge bg-success">Activo</span>
+                                            {% else %}
+                                                <span class="badge bg-danger">Inactivo</span>
+                                            {% endif %}
+                                        </td>
+                                        <td class="text-end">
+                                            {% if u.id_usuario != session['user_id'] %}
+                                                <!-- Formulario Cambiar Rol -->
+                                                <form action="{{ url_for('cambiar_rol_usuario', id_usuario=u.id_usuario) }}" method="POST" class="d-inline me-1">
+                                                    <select name="nuevo_rol" class="form-select form-select-sm d-inline-block w-auto" onchange="this.form.submit()">
+                                                        <option value="Aprendiz" {% if u.nombre_rol == 'Aprendiz' %}selected{% endif %}>Aprendiz</option>
+                                                        <option value="Tutor" {% if u.nombre_rol == 'Tutor' %}selected{% endif %}>Tutor</option>
+                                                        <option value="Administrador" {% if u.nombre_rol == 'Administrador' %}selected{% endif %}>Administrador</option>
+                                                    </select>
+                                                </form>
+
+                                                <!-- Formulario Inactivar / Activar -->
+                                                <form action="{{ url_for('toggle_estado_usuario', id_usuario=u.id_usuario) }}" method="POST" class="d-inline">
+                                                    <button type="submit" class="btn btn-sm {% if u.activo %}btn-outline-danger{% else %}btn-outline-success{% endif %}">
+                                                        {% if u.activo %}Inactivar{% else %}Activar{% endif %}
+                                                    </button>
+                                                </form>
+                                            {% else %}
+                                                <span class="text-muted small"><em>(Tu cuenta)</em></span>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <p class="text-muted mb-0">No hay usuarios registrados.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
