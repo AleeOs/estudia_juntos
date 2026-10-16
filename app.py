@@ -14,6 +14,7 @@ from reportlab.lib import colors
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 
+from flask import jsonify
 
 load_dotenv()
 
@@ -125,20 +126,30 @@ def logout():
 @app.route('/toggle_estado_usuario/<int:id_usuario>', methods=['POST'])
 def toggle_estado_usuario(id_usuario):
     if 'user_id' not in session or session.get('user_rol') != 'Administrador':
-        return redirect(url_for('login'))
+        return jsonify({'success': False, 'message': 'Acceso no autorizado'}), 403
 
     conn = get_db_connection()
     cur = conn.cursor()
 
-    # Alternar estado activo (TRUE/FALSE)
-    cur.execute("UPDATE usuarios SET activo = NOT COALESCE(activo, TRUE) WHERE id_usuario = %s", (id_usuario,))
+    # Alternar estado activo (TRUE/FALSE) y devolver el nuevo estado actualizado
+    cur.execute("""
+        UPDATE usuarios 
+        SET activo = NOT COALESCE(activo, TRUE) 
+        WHERE id_usuario = %s 
+        RETURNING activo
+    """, (id_usuario,))
+    
+    nuevo_estado = cur.fetchone()['activo']
     conn.commit()
 
     cur.close()
     conn.close()
 
-    flash("Estado de la cuenta actualizado correctamente.", "info")
-    return redirect(url_for('dashboard_admin'))
+    return jsonify({
+        'success': True,
+        'nuevo_estado': nuevo_estado,
+        'message': 'Estado de cuenta actualizado correctamente.'
+    })
 
 
 

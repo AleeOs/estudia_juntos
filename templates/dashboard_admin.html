@@ -151,7 +151,7 @@
                                 </thead>
                                 <tbody>
                                     {% for u in usuarios %}
-                                    <tr>
+                                    <tr id="user-row-{{ u.id_usuario }}">
                                         <td><strong>{{ u.nombre }} {{ u.apellido }}</strong></td>
                                         <td><small class="text-muted">{{ u.correo }}</small></td>
                                         <td>{{ u.semestre }}° Semestre</td>
@@ -161,11 +161,9 @@
                                             </span>
                                         </td>
                                         <td>
-                                            {% if u.activo %}
-                                                <span class="badge bg-success">Activo</span>
-                                            {% else %}
-                                                <span class="badge bg-danger">Inactivo</span>
-                                            {% endif %}
+                                            <span id="user-badge-{{ u.id_usuario }}" class="badge {% if u.activo %}bg-success{% else %}bg-danger{% endif %}">
+                                                {% if u.activo %}Activo{% else %}Inactivo{% endif %}
+                                            </span>
                                         </td>
                                         <td class="text-end">
                                             {% if u.id_usuario != session['user_id'] %}
@@ -178,12 +176,13 @@
                                                     </select>
                                                 </form>
 
-                                                <!-- Formulario Inactivar / Activar -->
-                                                <form action="{{ url_for('toggle_estado_usuario', id_usuario=u.id_usuario) }}" method="POST" class="d-inline">
-                                                    <button type="submit" class="btn btn-sm {% if u.activo %}btn-outline-danger{% else %}btn-outline-success{% endif %}">
-                                                        {% if u.activo %}Inactivar{% else %}Activar{% endif %}
-                                                    </button>
-                                                </form>
+                                                <!-- Botón Asíncrono Inactivar / Activar -->
+                                                <button type="button" 
+                                                        class="btn btn-sm btn-toggle-status {% if u.activo %}btn-outline-danger{% else %}btn-outline-success{% endif %}"
+                                                        data-user-id="{{ u.id_usuario }}"
+                                                        id="btn-toggle-{{ u.id_usuario }}">
+                                                    {% if u.activo %}Inactivar{% else %}Activar{% endif %}
+                                                </button>
                                             {% else %}
                                                 <span class="text-muted small"><em>(Tu cuenta)</em></span>
                                             {% endif %}
